@@ -1,0 +1,74 @@
+---
+title: "Advanced Natural Language Processing (968G5): Practical Assignment (Max 5000 words) - Propaganda Detection"
+shorttitle: "Advanced NLP Coursework - Propaganda Detection"
+shortauthors: Candidate No. 291723
+author:
+     - name: "Candidate Number: 291723"
+wordcount: XXXX
+reference-section-title: References
+bibliography: bibliography.bib
+csl: https://www.zotero.org/styles/apa
+format:
+    aog-article-pdf:
+        keep-tex: false
+        include-in-header:
+            text: |
+                \usepackage{caption}
+                \captionsetup{justification=centering}
+---
+
+```{python}
+#| echo: False
+import pickle 
+
+with open("../metrics/multimodalNB_accuracy.pkl", "rb") as f:
+    multinomialNB_accuracy = pickle.load(f)
+```
+
+
+# Introduction
+
+Propaganda constitutes a biased representation of information which is intended to persuade others of a particular belief or worldview [@Propaganda2026]. Whilst not necessarily false, propaganda risks engendering beliefs in individuals which do not adhere to matters of fact and that may serve to drive support for policies and societal attitudes which cause harm to indiviudals and groups, such as by reducing intent to vaccinate [@loombaMeasuringImpactCOVID192021a]. Social media provides a strong vector for propaganda to spread. As an example, this is particularly consequential when taking the form of state-sponsored "disinformation campaigns" [@direstaFullSpectrumPropagandaSocial2025]. Flagging propagandistic content to social media users may help to combat propagandistic content by encouraging users to be more critical of such content and reduce belief adoption based on misleading propaganda [@martelMisinformationWarningLabels2023; @menaReducingMisinformationCredibility2026;  but also see @gradyNeverthelessPartisanshipPersisted2021]. A reliance upon human-judges requires a set of impartial assessers to review (ideally) every social media post and flag its propagandistic nature. Such an approach is approximated by X in the form of community notes [@CommunityNotes2026], but whilst efficacy is generally good [@allenCharacteristicsFormerlyTwitter2024a]  coverage is far from ideal [@FasterMoreUseful], particularly during important political events [@RatedNotHelpful]. Instead, automated detection may help to improve propaganda flagging.
+
+INSERT A COUPLE OF EXAMPLES OF LITERATURE USING MNB/BERT FOR PROPAGANDA DETECTION
+
+The present research aims to address two tasks in propaganda detection. Firstly, two approahces to classifying known propagandistic texts as one of 8 propaganda variants will be evaluated, namely, a multinomial naive Bayes model, with a unigram bag-of-words representation, and a BERT [@devlinBERTPretrainingDeep2019a] model. 
+
+Real-world applications of propaganda technique text classification likely will not evaluate text which is already known to be propagandistic. Thus, for the second task, we can augment the approach taken in the first task to include a preceding step to identify, if present, a propagandistic snippet within a given text. If such a snippet is identified, we can then classify the text with a specific propaganda label as in task 1, otherwise we label it as `not_propaganda`. 
+
+# Methods
+
+ - Task 1
+    - Unigram BoW + Multinomial Naive Bayes
+        - Laplace Smoothing
+        - Rather than use BIO tagging, I removed "stop words" before tagging with "SNIPPET_" or "CONTEXT_".
+    - BERT
+ - Task 2
+    - Add a binary span identifier and see how MNB/BERT performance changes
+
+# Exploratory Data Analysis
+
+In ML classification tasks, the distribution of classes in the training data can influence the manner in which models discriminate between classes. For instance, suppose a class in the training data equates to 95% of all labels present. A model which only predicts this single class will achieve an accuracy of 95%. Thus, it is appropriate to evaluate the class distribution
+
+\begin{center}
+    \includegraphics[width=0.8\textwidth]{../figures/class_distribution_comparison_plot.png}
+    \captionof{figure}{Comparison of Class Distribution Between Train and Test Datasets}
+\end{center}
+
+\begin{center}
+    \includegraphics[width=0.8\textwidth]{../figures/word_length_by_label_plot.png}
+    \captionof{figure}{Distribution of Word Length by Class}
+\end{center}
+
+# Results
+
+## Task 1: Propaganda Technique Classification
+
+`{python} round(multinomialNB_accuracy, 3)`
+
+## Task 2: Propaganda Span and Technique Identification
+
+
+
+# Conclusion
+
