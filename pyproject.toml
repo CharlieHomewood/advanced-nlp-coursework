@@ -6,9 +6,12 @@ dependencies = [
     "datasets>=4.5.0",
     "jupyter>=1.1.1",
     "matplotlib>=3.9.4",
+    "nltk>=3.9.2",
     "pandas>=2.3.3",
     "scikit-learn>=1.6.1",
     "seaborn>=0.13.2",
+    "spacy>=3.8.11",
     "tqdm>=4.67.3",
     "transformers>=4.57.6",
+    "wordcloud>=1.9.6",
 ]
