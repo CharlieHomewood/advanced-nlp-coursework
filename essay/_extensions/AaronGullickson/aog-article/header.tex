@@ -36,7 +36,11 @@
 \titleformat*{\section}{\Large\sffamily\bfseries\raggedright}
 \titleformat*{\subsection}{\large\sffamily\bfseries\raggedright}
 \titleformat*{\subsubsection}{\normalsize\sffamily\bfseries\raggedright}
-\titleformat*{\paragraph}{\small\sffamily\bfseries\raggedright}
+\titleformat{\paragraph}[block]
+  {\small\sffamily\bfseries\raggedright}
+  {\theparagraph}
+  {1em}
+  {}
 
 %\titlespacing{<command>}{<left>}{<before-sep>}{<after-sep>}
 % Starred version removes indentation in following paragraph

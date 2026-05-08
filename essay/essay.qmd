@@ -29,55 +29,21 @@ with open("../metrics/multimodalNB_accuracy.pkl", "rb") as f:
 with open("../metrics/bert_accuracy.pkl", "rb") as f:
     bert_accuracy = pickle.load(f)
 
+with open("../metrics/o_percentage.pkl", "rb") as f:
+    o_percentage = pickle.load(f)
+
 most_common_words_df = pd.read_csv("../tables/most_common_words_df.csv")
 most_discriminative_features_per_class_df = pd.read_csv("../tables/most_discriminative_features_per_class_df.csv")
+task_1_approach_b_hyperparameters_df = pd.read_csv("../tables/task_1_approach_b_hyperparameters_df.csv")
 ```
 
 # Introduction
 
 Propaganda constitutes a biased representation of information which is intended to persuade others of a particular belief or worldview [@Propaganda2026]. Whilst not necessarily false, propaganda risks engendering beliefs in individuals which do not adhere to matters of fact and that may serve to drive support for policies and societal attitudes which cause harm to indiviudals and groups, such as by reducing intent to vaccinate [@loombaMeasuringImpactCOVID192021a]. Social media provides a strong vector for propaganda to spread. As an example, this is particularly consequential when taking the form of state-sponsored "disinformation campaigns" [@direstaFullSpectrumPropagandaSocial2025]. Flagging propagandistic content to social media users may help to combat propagandistic content by encouraging users to be more critical of such content and reduce belief adoption based on misleading propaganda [@martelMisinformationWarningLabels2023; @menaReducingMisinformationCredibility2026;  but also see @gradyNeverthelessPartisanshipPersisted2021]. A reliance upon human-judges requires a set of impartial assessers to review (ideally) every social media post and flag its propagandistic nature. Such an approach is approximated by X in the form of community notes [@CommunityNotes2026], but whilst efficacy is generally good [@allenCharacteristicsFormerlyTwitter2024a] coverage is far from ideal [@FasterMoreUseful], particularly during important political events [@RatedNotHelpful]. Instead, automated detection may help to improve propaganda flagging.
 
-INSERT A COUPLE OF EXAMPLES OF LITERATURE USING MNB/BERT FOR PROPAGANDA DETECTION
+This project aims to address two tasks in propaganda detection. Firstly, two approaches to classifying known propagandistic texts as one of $8$ propaganda variants will be evaluated and contrasted, namely, a multinomial naive Bayes (MNB) model using a unigram-bigram bag-of-words representation, and a DistilBERT [@sanhDistilBERTDistilledVersion2020] model, fine-tuned to this project's propaganda text dataset. 
 
-This project aims to address two tasks in propaganda detection. Firstly, two approahces to classifying known propagandistic texts as one of $8$ propaganda variants will be evaluated, namely, a multinomial naive Bayes (MNB) model using a unigram-bigram bag-of-words representation, and a Bidirectional Encoder Representations from Transformers BERT [@devlinBERTPretrainingDeep2019a] model, fine-tuned to this project's propaganda text dataset. 
-
-Real-world applications of propaganda technique text classification likely will not evaluate text which is already known to be propagandistic. Thus, for the second task, we can augment the approach taken in the first task to include a preceding step to identify, if present, a propagandistic snippet within a given text. If such a snippet is identified, we can then classify the text with a specific propaganda label as in task 1, otherwise we label it as `not_propaganda`. 
-
-# Methods
-
-## Task 1
-
- - Unigram and Bigram BoW + Multinomial Naive Bayes      
-     - Laplace Smoothing (implemented by MNB function default `alpha=1`)
- - BERT
- - Metric: Accuracy 
-     - This is fine because class imbalance amongst propaganda labels is low
-
-### Approach A: Bag-of-Words with Multinomial Naive Bayes
-
-
-
-$$
-P(c|d) = \frac{P(d|c)P(c)}{P(d)}
-$$ {#eq-bayes-rule}
-
-$$
-P(w_{1},\dots,w_{n}|c) = P(w_{1}|c) \times \dots \times P(w_{n}|c)
-$$ {#eq-independence}
-
-$$
-\hat{y} = \max_{c \in C} \left[\log P(c) + \sum_{i \in V} f_{i} \times \log \hat{P}(w_{i}|c) \right]
-$$ {#eq-mnb-log}
-
-$$
-\hat{P}(w_{i}|c) = \frac{\displaystyle\text{freq}(w_{i}, c) + 1}{\displaystyle\sum_{w \in V} (\text{freq}(w, c) + 1)}
-$$ {#eq-laplace-smoothing}
-
-### Approach B: Fine-tuned BERT
-
-## Task 2
-
-### 
+Real-world applications of propaganda technique text classification will likely not know in advance which texts contain propaganda, nor will the location of the propagandistic snippet be known. Thus, task 2 develops on the task 1's classification problem by also identifying where the snippet exists within each text. Two variations of a single approach will be evaluated and contrasted. Firstly, DistilBERT will again be used to classify BIO tagged WordPiece tokens. And secondly, a conditional random field (CRF) output layer will be used on a DistilBERT token classifier model.
 
 # Exploratory Data Analysis
 
@@ -85,7 +51,9 @@ In machine learning classification tasks, the distribution of classes in the tra
 
 ![Comparison of Multiclass Distribution Between Train and Test Datasets]("../figures/class_distribution_comparison_plot.png"){width=85% #fig-multiclass-distribution}
 
+@fig-multiclass-distribution shows that whilst `not_propaganda` instances dominate the class distribution ($\approx 50\%$), the class distibution amongst propagandistic labels is fairly uniform. This would suggest that for task $1$, where the texts are known to be propagandistic, the use of accuracy to evaluate overall model performance would be appropriate. However, for task $2$, where the propagandistic nature of the text must be determined via span identification, it would be more appropriate to evaluate overall model performance using a weighted F1-score, which computes the F1-score (harmonic mean of precision and recall) for each class and then averages these scores weighted by the number of true instances (support) in each class. 
 
+As both task $1$ and $2$ involve propaganda sequence classification, @tbl-eda-ngram-frequencies outlines the most commonly occurring unigrams and bigrams amongst snippet and context strings from texts in each propaganda class. This excludes English stop words, as defined by the `ntlk` library. Variation in $n$-gram occurrence across classes can provide some prior expectation around which kinds of $n$-grams may be most discriminiative in classification.
 
 ```{python}
 #| echo: false
@@ -106,36 +74,221 @@ display(
 )
 ```
 
-@tbl-eda-ngram-frequencies 
+We can see from @tbl-eda-ngram-frequencies that each class does appear to have some variation in commonly occurring $n$-grams. For instance, `flag_waving` appears to have multiple $n$-grams involving the word `america` in its snippets which is distinct from the other classes. Furthermore, we can see that $n$-grams relating to immigration appear under `repetition` more so than other classes, which may be indicative of how immigration-related propaganda tends to lean towards the use of repetition compared to other topics. 
 
-# Results
+On the other hand, we can also see that certain $n$-grams are unlikely to provide much discriminative information, such as `trump` which appears across most classes, both snippets and context strings alike. This is potentially an artefact of the dataset being biased towards American political news articles, which likely involve mentioning the U.S. president.
 
-## Task 1: Propaganda Technique Classification
+# Methods
 
-Multinomial Naive Bayes Plain Text Accuracy: `{python} round(multinomialNB_accuracy, 2)`
+## Task 1
+
+### Approach A: Bag-of-Words with Multinomial Naive Bayes
+
+Given a set of known propagandistic texts, the propagandistic snippet can be identified from the `<BOS>` and `<EOS>` tags. The remainder therefore constitutes the sentential context. For each of these substrings within each propagandistic text, we can construct a bag-of-words (BOW) representation. This involves constructing a dictionary where each key is a unique word and each value is the number of times that word occurs within the text. This idea can be extended to $n$-grams, whereby each key becomes a unique $n$-gram. 
+
+However, the distribution of words within any given text is not uniform. Some words appear more frequently across texts than others, and these more frequent words tend to be the same set of words across texts. This phenomenon is referred to as Ziph's law, whereby the product of frequency of a word and its rank amongst all other words remains approximately constant. As such, a BOW representation using raw frequencies will tend to have higher frequencies for the same set of words, regardless of the text in question. Given that this task involves assigning a propaganda label to a given text, it would be more useful to overweight infrequent $n$-grams as these are more likely to offer discriminative information during classification than frequently occurring $n$-grams which are relatively common to any given text. 
+
+To achieve this, the present BOW representation will use Term Frequency-Inverse Document Frequency (TF-IDF) to represent $n$-gram frequencies. TF-IDF simply weights each $n$-gram's observed frequency within a single text by the logarithmic inverse of its frequency across all texts within the sample. As such, a given text may include the word "the" $3$ times, but given that "the" occurs commonly across all texts, this frequency is then downweighted. By contrast, a word which is rare across all texts, but is found within the given text will have its frequency more heavily weighted. This helps to differentiate BOW representations by overweighting their more discrimnative $n$-grams, which will be more informative in classification than using raw frequencies.
+
+As such, a unigram and bigram BOW representation is used for both the snippets and the sentential context for each data instance. To incorporate sentential context, its BOW representation is concatenated to that of the snippet's to produce a single vector representation for each text (where the vector is just a vector of the text's TF-IDF frequencies for each $n$-gram). The incorporation of sentential context, rather than using snippets alone, may help to differentiate between snippets with similar BOW representations but fall under different class labels. As @tbl-eda-ngram-frequencies shows, `church` appears commonly across `appeal_to_fear_prejudice` and `causal_oversimplification` snippets, whereas their common context $n$-grams show a greater variety of $n$-grams.
+
+With this BOW representation, a multinomial naive Bayes (MNB) model can be fitted to a training set of propaganda label and BOW vector pairs. MNB is a supervised classification technique used to estimate the probability of some document $d$ belonging to some class $c$.
+
+$$
+P(c|d) \propto P(d|c)P(c)
+$$ {#eq-bayes-rule}
+
+We can represent a document $d$ as a sequence of $n$ words $d = w_{1}, \dots, w_{n}$. To find the likelihood of observing document $d$ given class $c$ ($P(d|c)$), we can assume that the probability of each word in the sequence $d$, given class $c$, occurs indepdently of every other word in the sequence:
+
+$$
+P(w_{1},\dots,w_{n}|c) = P(w_{1}|c) \times \dots \times P(w_{n}|c)
+$$ {#eq-independence}
+
+The prior $P(c)$ refers to the probability of observing class $c$, which can be estimated from the class distribution in the training data:
+
+$$
+P(c) = \frac{\text{freq}(d_{c})}{d_{total}}
+$$
+
+During classification, we predict the class of each document by assigning the most probable class label, given some document $d$ with frequencies $f$ of each $i^{th}$ $n$-gram in the training corpus vocabulary $V$.
+
+$$
+\hat{y} = \arg\max_{c \in C} \left[\log P(c) + \sum_{i \in V} f_{i} \log \hat{P}(w_{i}|c) \right]
+$$ {#eq-mnb-log}
+
+Given that class estimates require a summation over the entire training corpus vocabulary, some conditional probabilities could be $0$ as certain $n$-grams may never appear in a given class. This would prevent class predictions as probability estimates for class membership would be $0$ due to multiplying the conditional probabilities of each $n$-gram (or $-\infty$ in log space). To avoid this issue, Laplace smoothing can be used to increase the frequency of every conditional event by $1$, ensuring every conditional probability is $>0$.
+
+$$
+\hat{P}(w_{i}|c) = \frac{\displaystyle\text{freq}(w_{i}, c) + 1}{\displaystyle\sum_{w \in V} (\text{freq}(w, c) + 1)}
+$$ {#eq-laplace-smoothing}
+
+#### Evaluation Metrics {#sec-task-1-approach-a-eval-metrics}
+
+As shown in @fig-multiclass-distribution, whilst `not_propaganda` dominates the class distribution, propagandistic classes are distributed uniformly. As such, it is appropriate to use accuracy as an evaluation metric. Furthermore, to understand model performance within each class, a confusion matrix will be used to compare precision and recall and identify poorly performing classes.
+
+To understand how this MNB model makes class distinctions, we can use the estimated log probabilities of each $n$-gram given each class to compare each feature's probability of belonging to class $i$ with its average probability of belonging to every other class. Features which have a higher probability of class $i$ than their average probability across the other classes suggest the feature is more unique to that given class and may thus be more discriminative for assigning class labels to texts. @tbl-task-1-mnb-discriminative-words shows the top $10$ most discriminative features for each class, which can be contrasted against @tbl-eda-ngram-frequencies.
+
+### Approach B: Fine-tuned DistilBERT
+
+Bidirectional Encoder Representations from Transformers (BERT) [@devlinBERTPretrainingDeep2019a] is a type of transformer architecture which uses an encoder to generate representations of text from large corpora, pre-trained on masked language modelling and next sentence predictions tasks, respectively. BERT uses three word embeddings to represent WordPiece tokens: token embeddings, segment embeddings and position embeddings. Each segment is separated by a [CLS] token and sentences within segments are separated by [SEP] tokens. BERT processes text bidirectionally to account for prior and future context and generates contextual embeddings of each token, with the [CLS] token representing a summarised representation of the entire segment. BERT can then be fine-tuned to novel corpora to perform additional NLP tasks such as sequence classification. Fine-tuning can be used to generate [CLS] embeddings for each segment of text, which can be passed to a feedforward neural network to classify that [CLS] token.
+
+This project will use DistilBERT [@sanhDistilBERTDistilledVersion2020] which is a smaller and more efficient variant of BERT that only slightly underperforms BERT across standard benchmarks but has $40\%$ fewer parameters. Unlike the MNB classifier, this approach will use the unmodified `tagged_in_context` training data, whilst adding the `<BOS>` and `<EOS>` as special tokens, akin to the [SEP] token. 
+
+#### Hyperparameters
+
+@tbl-task-1-approach-b-hyperparameters outlines the hyperparameters used for this approach.
 
 ```{python}
 #| echo: false
-#| label: tbl-task-1-mnb-discriminative-words
-#| tbl-cap: "Most Discriminative Words by Label"
+#| label: tbl-task-1-approach-b-hyperparameters
+#| tbl-cap: "Task 1 DistilBERT Hyperparameters"
 #| tbl-cap-location: bottom
 #| tbl-pos: H
 from IPython.display import display, Latex
 
 display(
     Latex(
-        most_discriminative_features_per_class_df.to_latex(
+        task_1_approach_b_hyperparameters_df.to_latex(
             index=False,
             escape=True,
-            column_format="p{7cm} p{7cm}"
+            column_format="p{5cm} p{5cm}"
         )
     )
 )
 ```
 
-BERT Accuracy: `{python} round(bert_accuracy, 2)`
+Batch size is used to determine the number of data instances which pass through the model before its weights are updated. Higher batch sizes many improve weight stability but require more memory, whereas smaller sizes sacrifice stability but are less intensive on memory. A batch size of $8$ was used as this enabled faster training. 
+
+The learning rate is a weighting factor applied to the loss gradient. When too high, training losses diverge from the global minimum but too low and the model fails to update weights sufficiently to approach the global minimum. A typical learning rate of $2e-5$ was used as this is a typical value used for fine-tuning tasks with BERT [@devlinBERTPretrainingDeep2019a].
+
+BERT model use a maximum sequence length of $512$ tokens, which is retained in this project. A lower maximum sequence length would improve training speed, but loses information for longer sequences. Thus, keeping this hyperparameter at $512$ ensures training examples contain maximal information.
+
+The number of epochs was determined during training by evaluating the validation loss. Fine-tuning tasks typically do not require many epochs (i.e. $<5$) to converge, but inspection of validation losses suggested that $3$ was optimal as subsequent epochs resulted in increasing valdiation loss, indicative of overfitting. $20\%$ of the training data instances were held out to evaluate validation loss.
+
+Lastly, weight decay is used to implement L$2$ regularisation, which adds an additional penalty term to the model's loss function, equivalent to the sum of the squared model weights. The weight decay therefore acts as a weighting on this penality term. High weight decays risk underfitting, and so a value of $0.01$ is used.
+
+#### Loss Function
+
+The `AutoModelForSequenceClassification` class from the Hugging Face `transformers` library uses unweighted cross entropy loss as its default loss function when the `num_labels` argument is passed with a value $>1$. Cross entropy loss measures the expected negative log-likelihood of the true probability distribution $p(c)$, given a predicted distribution $q(c)$. Lower cross entropy loss means predictions made by a model with $q(c)$ are close to those produced under $p(c)$, indicating $q(c)$ aproximates $p(c)$.
+
+$$
+H(p,q)=-\sum_{x \in X}p(c)\log q(c)
+$$ {#eq-log-loss}
+
+As each data instance can only have one class label, $\sum_{c \in C}p(c)$ becomes a one-hot encoded vector across each class, which therefore simplies @eq-log-loss to simply be the negative log of the model's predicted probability for the true class ($H(p,q)=-\log q(c)$). 
+
+#### Evaluation Metrics
+
+As with @sec-task-1-approach-a-eval-metrics, accuracy will be used to evaluate model performance holistically, whilst a confusion matrix will highlight class-level precision and recall underperformance. However, unlike MNB, evaluating discriminative features for each class is less feasible with BERT given than DistilBERT uses contextual embedding representations of WordPiece tokens, rather than a bag-of-words representation. Thus, $n$-grams in MNB constitute independent model features used in predictions, whilst DistilBERT's token representations are directly dependent on surrounding tokens and thus cannot be extracted into atomised model features.
+
+## Task 2
+
+### Approach A: BIO Tagging with DistilBERT
+
+With task 2, the texts are no longer assumed to be propagandistic and thus the potential propagandistic snippet must be idenfitied before enabling classification. An approach which helps combine these two tasks into a single fine-tuning BERT task is BIO tagging.
+
+BIO tagging involves assigning labels to tokens within a sequence. A token tagged with `B` indicates that the token is the beginning of a span. `I` then indicates subsequent tokens which belong to that span, whilst `O` shows tokens which are outside the span. Applying this tagging to the training and testing data provides token-tag pairs which can be used for training token classification, which DistilBERT can be fine-tuned to perform. 
+
+To combine the sequence labelling, we can also append an entity type to each `B` and `I` tag, indicating what kind of span it is labelling. These entities can correspond to each of the $8$ propaganda classes in the dataset, with tokens from `not_propaganda` spans simply being labelled with `O`. 
+
+![BIO Tag Frequency Distribution in Training Corpus]("../figures/bio_tag_frequency_distribution.png"){width=90% #fig-bio-tag-distribution}
+
+@fig-bio-tag-distribution outlines the frequency distribution of each BIO tag in the training corpus. As expected, `O` tokens dominate (accounting for around `{python} o_percentage`$\%$ of all tokens) as all tokens not part of a propagandistic span are labelled as such. This introduces an issue with model fine-tuning as the DistilBERT token classifier can achieve high accuracy by simply predicting just `O` tokens. @sec-task-2-approach-a-loss-function discusses alterations made to the loss function to counteract this class imbalance.
+
+#### Hyperparameters
+
+Given that this approach is implemented as another classification task, this time at the token level rather than sequence, the same set of hyperparameters used for the DistilBERT model in task $1$ will be used for this approach in task $2$.
+
+#### Loss Function {#sec-task-2-approach-a-loss-function}
+
+With the presence of heavy class imbalance, outlined in @fig-bio-tag-distribution, one approach to managing this issue is by applying a weighted loss function. Again, as with task $1$'s DistilBERT model, this loss function is cross entropy loss, but now the negative logarithm of the model's predicted probability is weighted by a class-specific weighting $w_{c}$.
+
+$$
+H(p,q)_{\text{weighted}}=-w_{c}\log q(c)
+$$ {#eq-weighted-log-loss}
+
+The weighting used for each class $c$ is the normalised inverse frequency of that class, such that losses for each class are weighted by how often that class occurs in the training data. Classes which are very rare, like the `B-entity` and `I-entity` tags, are weighted heavily compared to the majority class `O`.
+
+$$
+w_{c} = \frac{N_{\text{total}}}{|C| \cdot N_{c}}
+$$ {#eq-log-loss-weights}
+
+This weighted cross entropy loss function encourages weights to be updated with gradients that are more sensitive to errors made amongst minority classes than those from the majority class, which should discourage the model from simply predicting the majority class `O`.  
+
+#### Evaluation Metrics
+
+Given the BIO tag class imbalance, accuracy would represent a poor evaluation metric for overall model performance. Instead, as mentioned previously, a weighted F1 score is more appropriate in the presence of class imbalance. As this task involves identifying the correct propaganda span (if present), and then correctly classifying the text, two different weighted F1 scores will be used for overall model performance. 
+
+The span-level F1 score will assess overal model performance on span identification. @dasanmartinoSemEval2020Task112020 use a span f1 score derived from the overlap between character indicies of true and predicted spans. For each set of true and predicted spans, we find the intersection of their character indicies and divide by the length of the true span. These are then summed across all pairs and normalised by the number of spans
+
+$$
+P = \sum_{d \in D}\frac{ |\text{chars}(s) \cap \text{chars}(t)|}{|\text{chars}(t)|}
+$$ {#eq-span-precision}
+
+The recall is then similar, except each intersection is divided by the length of the predicted span.
+
+$$
+R = \frac{\sum_{d \in D} |\text{chars}(s) \cap \text{chars}(t)|}{|\text{chars}(s)|}
+$$ {#eq-span-recall}
+
+Thus the span-level f1 score is determined as follows:
+
+$$
+\text{Span F1} = \frac{2 \cdot P \cdot R}{P + R}
+$$ {#eq-span-f1}
+
+As for sequence classification, since the model may predict multiple spans per data instance (despite there only being one true span), to assign a predicted span label, we can use the logits of each BIO tag and convert these to probabilities via softmax. We then identify which token has the highest probability within each predicted span for a given text and compare these probabilities across each predicted span. The propaganda label of the span with the highest probability is then used as the class label for that text. Should no spans be identified, the text is then labelled as `not_propaganda`. The label F1 score is then calculated by comparing these predicted labels to the true labels. 
+
+### Approach B: BIO Tagging with DistilBERT + CRF Output Layer
+
+One potential issue with approach A is that classiying tokens using BIO tags involves making independent classifications for each token. However, BIO tags for a sequence of tokens cannot be assigning in any arbitrary order. The BIO tags themselves follow certain sequential rules. For example, it is invalid for an `I` tag to immediately follow an `O` tag since all spans must begin with a `B` tag. It is also invalid for a `B-X` tag to immediately precede another `B-X` tag, or an `I-Y` tag to follow a `B-X` tag. Whilst DistilBERT's contextual token representations may capture these transition rules, they are not strictly enforced and thus may lead to invalid BIO tag sequences during inference. 
+
+A modification to DistilBERT can be made involving the use of a conditional random field (CRF) output layer. A CRF considers the joint probability of the entire tag sequence of a data instance, using the token logits outputted by DistilBERT. We can consider some predicted tag sequence $y$ and each possible tag sequence $y^{\prime}$ for a given data instance. Given some set of logits $X$ from the DistilBERT token classifier, we can apply softmax over each possible tag sequence:
+
+$$
+p(y|X) = \frac{\exp\left(\sum_{i=1}^{N}(X_{t, y_{t}} + T_{y_{t-1}, y_{t}})\right)}{\sum_{y^{\prime}}\exp\left(\sum_{i=1}^{N}(X_{t,y_{t}^{\prime}} + T_{y_{t-1}^{\prime}, y_{t}^{\prime}})\right)}
+$$ {#eq-crf}
+
+The optimal sequence $\hat{y}$ is found via the Viterbi algorithm
+
+$$
+\hat{y} = \arg\max_{y} p(y|X)
+$$ {#eq-vitberi}
+
+#### Hyperparameters
+
+To discourage invalid BIO transitions, the transition matrix $T$ is initialised with strong negative weights for invalid transitions. A weighting of $-5$ was used for each invalid BIO condition: 
+
+ - An `I-X` may only immediately follow a `B-X` or `I-X` tag
+ - A `B-X` tag cannot immediately follow another `B-X` tag
+ - A `B-X` tag cannot immediately follow an `I-X` tag
+ - An `I` tag cannot immediately follow an `O` tag
+
+The remaining hyperparameters used in approach A were retained.
+
+#### Loss Function
+
+As approach B involves using a CRF output layer, the model is optimising for tag sequences rather than inidividual token labels. As such, the loss function is altered to reflect this difference and to enable the CRF layer to learn transition weights. Thus, the negative log likelihood of the predicted tag sequence $\hat{y}$ is used as the loss function.
+
+$$
+\mathcal{L} = -\log p(\hat{y}|X)
+$$ {#eq-neg-log-likelihood}
+
+#### Evaluation Metrics
+
+To enable comparison with approach A, the same evaluation metrics will be used in approach B. 
+
+# Results
+
+## Task 1: Propaganda Technique Classification
+
+
 
 ## Task 2: Propaganda Span and Technique Identification
+
+
+
+# Future Work
 
 
 

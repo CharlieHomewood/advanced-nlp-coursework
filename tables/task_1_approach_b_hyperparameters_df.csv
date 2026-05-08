@@ -1,0 +1,8 @@
+Parameter,Value
+batch_size,8
+learning_rate,2e-05
+max_token_length,512
+num_epochs,3
+pretrained_bert_model,distilbert-base-uncased
+validation_test_size,0.2
+weight_decay,0.01

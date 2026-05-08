@@ -10,6 +10,7 @@ dependencies = [
     "pandas>=2.3.3",
     "scikit-learn>=1.6.1",
     "seaborn>=0.13.2",
+    "seqeval>=1.2.2",
     "spacy>=3.8.11",
     "tqdm>=4.67.3",
     "transformers>=4.57.6",
